@@ -3,6 +3,15 @@ require 'builder'
 require 'marc'
 require 'time'
 
+def joinsf field, subfields, joinval
+  sf = subfields.join "|"
+  field.find_all {|s| s.code =~ Regexp.new("(#{sf})") } .map {|x| x.value} .join joinval
+end
+
+def subj s
+  s.gsub(/\s[\|].\s/, " -- ")
+end
+
 def title r
   r['245']['a'] + ', ' + r['245']['f']
 end
@@ -10,19 +19,30 @@ end
 def contents r
   c = "<p><strong>Call Number: " + r['099']['a'] + "</strong></p>\n"
   c << "<p><strong>Extent: " + r['300']['a'] + " " + r['300']['f'] + "</strong></p>\n"
-  c << "<p>\n"
-  c << r['520']['a']
-  c << "</p>\n"
+  c << "<p>\n" + r['520']['a'] + "</p>\n"
+  #c << "<p>\n" + r['545']['a'] + "</p>\n"
+
   c << names(r)
   c << places(r)
   c << subjects(r)
   c << types(r)
+  #c << "<p><a href=\"http://www.brooklynhistory.org\">View Finding Aid</a></p>"
 end
 
 def names r
   c = "<p><strong>Names:</strong></p>\n<ul>\n"
   r.find_all {|field| field.tag =~ /^(100|110|600|610)/}.each do |f|
-    c << "<li>" + (f.subfields.map {|s| s.value} .join " ") + "</li>\n"
+    c << "<li>"
+    if f.tag === "100"
+      c << joinsf(f, ['a','e'], ", ")
+    elsif f.tag === "110"
+      c << joinsf(f, ['a','b','e'], ", ")      
+    elsif f.tag === "600"
+      c << f['a']
+    else
+     c << joinsf(f, ['a','b','f'], ", ")
+    end
+    c << "</li>\n"
   end
   c << "</ul>\n"
 end
@@ -30,15 +50,16 @@ end
 def places r
   c = "<p><strong>Places:</strong></p>\n<ul>\n"
   r.find_all {|field| field.tag === "651"}.each do |f|
-    c << "<li>" + (f.subfields.map {|s| s.value} .join " ") + "</li>\n"
+    c << "<li>" + subj(f.value) + "</li>\n"
   end
+  
   c << "</ul>\n"
 end
 
 def subjects r
   c = "<p><strong>Subjects:</strong></p>\n<ul>\n"
   r.find_all {|field| field.tag =~ /^(650|630)/}.each do |f|
-    c << "<li>" + (f.subfields.map {|s| s.value} .join " ") + "</li>\n"
+    c << "<li>" + subj(f.value) + "</li>\n"
   end
   c << "</ul>\n"
 end
@@ -46,7 +67,7 @@ end
 def types r
   c = "<p><strong>Types of documents:</strong></p>\n<ul>\n"
   r.find_all {|field| field.tag === "655"}.each do |f|
-    c << "<li>" + (f.subfields.map {|s| s.value} .join " ") + "</li>\n"
+    c << "<li>" + subj(f.value) + "</li>\n"
   end
   c << "</ul>\n"
 end
@@ -68,7 +89,9 @@ wxr.rss 'version' => "2.0", 'xmlns:content' => "http://purl.org/rss/1.0/modules/
     records.each do |r|
       wxr.item do
         wxr.title title(r)
-        wxr.content(:encoded) { |x| x << contents(r) }
+        wxr.content(:encoded) do
+          wxr.cdata! contents(r)
+        end 
         wxr.pubDate Time.now.rfc822
         wxr.guid "http://brooklynhistory.org/library/callno/#{r['099']['a']}", "isPermaLink" => "false"
         author = "admin"
