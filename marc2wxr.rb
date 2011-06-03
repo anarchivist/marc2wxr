@@ -1,7 +1,7 @@
-require 'date'
-require 'marc'
-require 'active_support'
+require 'rubygems'
 require 'builder'
+require 'marc'
+require 'time'
 
 def title r
   r['245']['a'] + ', ' + r['245']['f']
@@ -10,9 +10,45 @@ end
 def contents r
   c = "<p><strong>Call Number: " + r['099']['a'] + "</strong></p>\n"
   c << "<p><strong>Extent: " + r['300']['a'] + " " + r['300']['f'] + "</strong></p>\n"
-  c << "<p>"
+  c << "<p>\n"
   c << r['520']['a']
-  c << "</p>"
+  c << "</p>\n"
+  c << names(r)
+  c << places(r)
+  c << subjects(r)
+  c << types(r)
+end
+
+def names r
+  c = "<p><strong>Names:</strong></p>\n<ul>\n"
+  r.find_all {|field| field.tag =~ /^(100|110|600|610)/}.each do |f|
+    c << "<li>" + (f.subfields.map {|s| s.value} .join " ") + "</li>\n"
+  end
+  c << "</ul>\n"
+end
+
+def places r
+  c = "<p><strong>Places:</strong></p>\n<ul>\n"
+  r.find_all {|field| field.tag === "651"}.each do |f|
+    c << "<li>" + (f.subfields.map {|s| s.value} .join " ") + "</li>\n"
+  end
+  c << "</ul>\n"
+end
+
+def subjects r
+  c = "<p><strong>Subjects:</strong></p>\n<ul>\n"
+  r.find_all {|field| field.tag =~ /^(650|630)/}.each do |f|
+    c << "<li>" + (f.subfields.map {|s| s.value} .join " ") + "</li>\n"
+  end
+  c << "</ul>\n"
+end
+
+def types r
+  c = "<p><strong>Types of documents:</strong></p>\n<ul>\n"
+  r.find_all {|field| field.tag === "655"}.each do |f|
+    c << "<li>" + (f.subfields.map {|s| s.value} .join " ") + "</li>\n"
+  end
+  c << "</ul>\n"
 end
 
 records = MARC::XMLReader.new(ARGV[0])
@@ -27,27 +63,28 @@ wxr.rss 'version' => "2.0", 'xmlns:content' => "http://purl.org/rss/1.0/modules/
     wxr.language "en-us"
     wxr.ttl "40"
     wxr.description "conversion"
+    wxr.wp :wxr_version, "1.1"
 
     records.each do |r|
       wxr.item do
         wxr.title title(r)
-        wxr.content(:encoded) { |x| x << '<![CDATA[' + a.full_html + ']]>' }
-        wxr.pubDate DateTime.now.to_formatted_s(:rfc822)
+        wxr.content(:encoded) { |x| x << contents(r) }
+        wxr.pubDate Time.now.rfc822
         wxr.guid "http://brooklynhistory.org/library/callno/#{r['099']['a']}", "isPermaLink" => "false"
-        author = a.user.name rescue a.author
+        author = "admin"
         wxr.author author
         wxr.dc :creator, author
-        for category in a.categories
-          wxr.category category.name
-        end
-        for tag in a.tags
-          wxr.category tag.display_name
-        end
-        wxr.wp :post_id, a.id
-        wxr.wp :post_date, a.published_at.strftime("%Y-%m-%d %H:%M:%S")
-        wxr.wp :comment_status, 'closed'
-        wxr.wp :ping_status, 'closed'
-        wxr.wp :post_name, a.permalink
+        # for category in a.categories
+        #           wxr.category category.name
+        #         end
+        #         for tag in a.tags
+        #           wxr.category tag.display_name
+        #         end
+        # wxr.wp :post_id, a.id
+        wxr.wp :post_date, Time.now.rfc822
+        # wxr.wp :comment_status, 'closed'
+        # wxr.wp :ping_status, 'closed'
+        # wxr.wp :post_name, a.permalink
         wxr.wp :status, 'publish'
         wxr.wp :post_parent, '0'
         wxr.wp :post_type, 'post'
@@ -55,3 +92,5 @@ wxr.rss 'version' => "2.0", 'xmlns:content' => "http://purl.org/rss/1.0/modules/
     end
   end
 end  
+
+puts wxr.to_s
