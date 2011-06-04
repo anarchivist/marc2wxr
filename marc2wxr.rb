@@ -116,4 +116,4 @@ wxr.rss 'version' => "2.0", 'xmlns:content' => "http://purl.org/rss/1.0/modules/
   end
 end  
 
-puts wxr.to_s
+puts wxr.target!
