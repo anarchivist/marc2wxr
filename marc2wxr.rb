@@ -34,13 +34,13 @@ def names r
   r.find_all {|field| field.tag =~ /^(100|110|600|610)/}.each do |f|
     c << "<li>"
     if f.tag === "100"
-      c << joinsf(f, ['a','e'], ", ")
+      c << joinsf(f, ['a','d','e'], ", ")
     elsif f.tag === "110"
       c << joinsf(f, ['a','b','e'], ", ")      
     elsif f.tag === "600"
-      c << f['a']
+      c << joinsf(f, ['a','d'], ", ")
     else
-     c << joinsf(f, ['a','b','f'], ", ")
+      c << joinsf(f, ['a','b','f'], ", ")
     end
     c << "</li>\n"
   end
